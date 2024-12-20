@@ -1,4 +1,4 @@
-package ace.charitan.payment.producer;
+package ace.charitan.payment.internal.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;

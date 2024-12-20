@@ -1,4 +1,4 @@
-package ace.charitan.payment.consumer;
+package ace.charitan.payment.external.consumer;
 
 
 import org.springframework.kafka.annotation.KafkaListener;

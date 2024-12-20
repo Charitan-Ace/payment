@@ -5,7 +5,7 @@ stripe:
   secret:
     key: ${STRIPE_SECRET_KEY}
   publishable:
-    key:
+    key: ${STRIPE_PUBLISHABLE_KEY}
 eureka:
   client:
     healthcheck:

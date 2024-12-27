@@ -4,24 +4,29 @@ import ace.charitan.payment.external.service.ExternalPaymentService;
 import ace.charitan.payment.internal.dto.ConfirmPaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreateCustomerDto;
+import ace.charitan.payment.internal.dto.CreateSetupIntentDto;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.SetupIntent;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.PaymentIntentConfirmParams;
 import com.stripe.param.PaymentIntentCreateParams;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentService {
 
     @Override
-    public Customer createCustomer(CreateCustomerDto dto) throws StripeException {
+    public String createCustomer(CreateCustomerDto dto) throws StripeException {
         CustomerCreateParams params = new CustomerCreateParams.Builder()
                 .setName(dto.getName())
                 .setEmail(dto.getEmail())
                 .build();
-        return Customer.create(params);
+        return Customer.create(params).getId();
     }
 
     @Override
@@ -30,7 +35,17 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     @Override
-    public PaymentIntent createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
+    public String createSetupIntent(CreateSetupIntentDto dto) throws StripeException {
+        Map<String, Object> params = new HashMap<>();
+        params.put("customer", dto.getCustomerId());
+        params.put("payment_method_types", new String[]{"card"});
+        SetupIntent intent = SetupIntent.create(params);
+
+        return intent.getClientSecret();
+    }
+
+    @Override
+    public String createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
         PaymentIntentCreateParams params = new PaymentIntentCreateParams.Builder()
                 .setAmount(dto.getAmount())
                 .setCurrency(dto.getCurrency())
@@ -43,7 +58,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                 )
 //                .setReturnUrl("http://localhost:8080/something")
                 .build();
-        return PaymentIntent.create(params);
+        return PaymentIntent.create(params).getClientSecret();
     }
 
     @Override

@@ -12,5 +12,10 @@ public class KafkaMessageConsumer {
         System.out.println("Payment microservice received message: " + message);
     }
 
+    @KafkaListener(topics = "payment-response", groupId = "payment")
+    public void listena(String message) {
+        System.out.println("Payment microservice received message: " + message);
+    }
+
 }
 

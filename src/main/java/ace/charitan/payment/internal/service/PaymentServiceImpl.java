@@ -1,24 +1,27 @@
 package ace.charitan.payment.internal.service;
 
 import ace.charitan.payment.external.service.ExternalPaymentService;
-import ace.charitan.payment.internal.dto.ConfirmPaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreateCustomerDto;
 import ace.charitan.payment.internal.dto.CreateSetupIntentDto;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.PaymentIntent;
+import com.stripe.model.PaymentMethod;
 import com.stripe.model.SetupIntent;
 import com.stripe.param.CustomerCreateParams;
-import com.stripe.param.PaymentIntentConfirmParams;
 import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.PaymentMethodListParams;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentService {
+
+    @Autowired
+    private KafkaMessageProducer producer;
 
     @Override
     public String createCustomer(CreateCustomerDto dto) throws StripeException {
@@ -36,8 +39,12 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     @Override
     public String createSetupIntent(CreateSetupIntentDto dto) throws StripeException {
+//        Optional<String> stripeCustomerId = getStripeCustomerIdFromProfileService();
         Map<String, Object> params = new HashMap<>();
-        params.put("customer", dto.getCustomerId());
+        if (dto.getCustomerId() != null) {
+            params.put("customer", dto.getCustomerId());
+        }
+//        stripeCustomerId.ifPresent(s -> params.put("customer", s));
         params.put("payment_method_types", new String[]{"card"});
         SetupIntent intent = SetupIntent.create(params);
 
@@ -45,29 +52,56 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     @Override
-    public String createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
-        PaymentIntentCreateParams params = new PaymentIntentCreateParams.Builder()
+    public PaymentIntent createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
+        PaymentIntentCreateParams.Builder paramsBuilder = new PaymentIntentCreateParams.Builder()
                 .setAmount(dto.getAmount())
                 .setCurrency(dto.getCurrency())
-                .setCustomer(dto.getStripeCustomerId())
                 .setAutomaticPaymentMethods(
-                    PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
-                            .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
-                            .setEnabled(true)
-                            .build()
-                )
-//                .setReturnUrl("http://localhost:8080/something")
-                .build();
-        return PaymentIntent.create(params).getClientSecret();
-    }
+                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                                .setEnabled(true)
+                                .build()
+                );
 
-    @Override
-    public PaymentIntent confirmPaymentIntent(ConfirmPaymentIntentDto dto) throws StripeException {
-        PaymentIntent intent = PaymentIntent.retrieve(dto.getIntentId());
-        PaymentIntentConfirmParams params = PaymentIntentConfirmParams.builder()
-                .setPaymentMethod(dto.getPaymentMethod())
-                .build();
-        intent.confirm(params);
+        String stripeCustomerId = dto.getCustomerId();
+
+        if (stripeCustomerId != null) {
+            paramsBuilder.setCustomer(stripeCustomerId);
+        }
+
+        PaymentIntentCreateParams params = paramsBuilder.build();
+        PaymentIntent intent = PaymentIntent.create(params);
+        System.out.println(dto);
+
+        producer.updateDonationStripeId(dto.getDonationId(), intent.getId());
+
         return intent;
     }
+
+    public List<PaymentMethod> getPaymentMethods(String stripeCustomerId) {
+//        Optional<String> stripeCustomerId = getStripeCustomerIdFromProfileService();
+        if (stripeCustomerId.isEmpty()) {
+            return Collections.emptyList(); // No Stripe customer linked
+        }
+
+        try {
+            PaymentMethodListParams params = PaymentMethodListParams.builder()
+                    .setCustomer(stripeCustomerId)
+                    .setType(PaymentMethodListParams.Type.CARD)
+                    .build();
+
+            return PaymentMethod.list(params).getData();
+        } catch (StripeException e) {
+            throw new RuntimeException("Failed to list payment methods", e);
+        }
+    }
+
+    private Optional<String> getStripeCustomerIdFromProfileService() {
+        //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
+//        return Optional.of("cus_RTvFt09w0eed0B");
+        return Optional.empty();
+    }
+
+
+
 }

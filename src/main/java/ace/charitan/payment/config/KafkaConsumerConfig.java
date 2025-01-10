@@ -19,7 +19,11 @@ class KafkaConsumerConfig {
     @Bean
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka:9092");
+        String bootstrapServers = System.getenv("KAFKA_BOOTSTRAP_SERVERS");
+        if (bootstrapServers == null || bootstrapServers.isEmpty()) {
+            bootstrapServers = "kafka:9092";
+        }
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "payment");
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);

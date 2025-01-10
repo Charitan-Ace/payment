@@ -104,14 +104,17 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                     .setPrice(price.getId())
                     .build()
                 )
-                      .setBillingCycleAnchor(getNextBillingCycleAnchor())
-                .build();
+              .setBillingCycleAnchor(getNextBillingCycleAnchor())
+                      .putMetadata("donorId", "from cookie")
+                      .putMetadata("projectId", dto.getProjectId())
+            .build();
         return Subscription.create(params);
     }
 
     private String getStripeCustomerIdFromProfileService() {
       //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-        return "cus_RTvFt09w0eed0B";
+//        return "cus_abc";
+        return "cus_RVnFt7faKUzkoS";
     }
 
     private long getNextBillingCycleAnchor() {

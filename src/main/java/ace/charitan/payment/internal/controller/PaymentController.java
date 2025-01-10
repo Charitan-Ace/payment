@@ -9,6 +9,7 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.PaymentMethod;
 import com.stripe.model.Subscription;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -57,10 +58,13 @@ class PaymentController {
     }
 
     @PostMapping("/create-subscription")
-    public ResponseEntity<Subscription> createSubscription(@RequestBody CreateSubscriptionDto dto) throws StripeException {
-        Subscription subscription = service.createSubscription(dto);
-        return ResponseEntity.ok(subscription);
-
+    public ResponseEntity<String> createSubscription(@RequestBody CreateSubscriptionDto dto) {
+        try {
+            Subscription subscription = service.createSubscription(dto);
+            return ResponseEntity.ok(subscription.getId());
+        } catch (StripeException e) {
+            return new ResponseEntity(e.getMessage(), HttpStatus.FAILED_DEPENDENCY);
+        }
     }
 
 }

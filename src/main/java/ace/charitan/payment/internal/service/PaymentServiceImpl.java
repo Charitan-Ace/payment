@@ -3,18 +3,15 @@ package ace.charitan.payment.internal.service;
 import ace.charitan.payment.external.service.ExternalPaymentService;
 import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreateCustomerDto;
-import ace.charitan.payment.internal.dto.CreateSetupIntentDto;
+import ace.charitan.payment.internal.dto.CreateSubscriptionDto;
 import com.stripe.exception.StripeException;
-import com.stripe.model.Customer;
-import com.stripe.model.PaymentIntent;
-import com.stripe.model.PaymentMethod;
-import com.stripe.model.SetupIntent;
-import com.stripe.param.CustomerCreateParams;
-import com.stripe.param.PaymentIntentCreateParams;
-import com.stripe.param.PaymentMethodListParams;
+import com.stripe.model.*;
+import com.stripe.param.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
@@ -38,13 +35,9 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     @Override
-    public String createSetupIntent(CreateSetupIntentDto dto) throws StripeException {
-//        Optional<String> stripeCustomerId = getStripeCustomerIdFromProfileService();
+    public String createSetupIntent() throws StripeException {
+        String stripeCustomerId = getStripeCustomerIdFromProfileService();
         Map<String, Object> params = new HashMap<>();
-        if (dto.getCustomerId() != null) {
-            params.put("customer", dto.getCustomerId());
-        }
-//        stripeCustomerId.ifPresent(s -> params.put("customer", s));
         params.put("payment_method_types", new String[]{"card"});
         SetupIntent intent = SetupIntent.create(params);
 
@@ -53,6 +46,8 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     @Override
     public PaymentIntent createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
+        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+
         PaymentIntentCreateParams.Builder paramsBuilder = new PaymentIntentCreateParams.Builder()
                 .setAmount(dto.getAmount())
                 .setCurrency(dto.getCurrency())
@@ -60,29 +55,19 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                         PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                 .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
                                 .setEnabled(true)
-                                .build()
-                );
-
-        String stripeCustomerId = dto.getCustomerId();
-
-        if (stripeCustomerId != null) {
-            paramsBuilder.setCustomer(stripeCustomerId);
-        }
+                                .build())
+                .setCustomer(stripeCustomerId);
 
         PaymentIntentCreateParams params = paramsBuilder.build();
         PaymentIntent intent = PaymentIntent.create(params);
-        System.out.println(dto);
 
         producer.updateDonationStripeId(dto.getDonationId(), intent.getId());
 
         return intent;
     }
 
-    public List<PaymentMethod> getPaymentMethods(String stripeCustomerId) {
-//        Optional<String> stripeCustomerId = getStripeCustomerIdFromProfileService();
-        if (stripeCustomerId.isEmpty()) {
-            return Collections.emptyList(); // No Stripe customer linked
-        }
+    public List<PaymentMethod> getPaymentMethods() {
+        String stripeCustomerId = getStripeCustomerIdFromProfileService();
 
         try {
             PaymentMethodListParams params = PaymentMethodListParams.builder()
@@ -96,12 +81,45 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         }
     }
 
-    private Optional<String> getStripeCustomerIdFromProfileService() {
-        //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-//        return Optional.of("cus_RTvFt09w0eed0B");
-        return Optional.empty();
+    public Subscription createSubscription(CreateSubscriptionDto dto) throws StripeException {
+        PriceCreateParams priceCreateParams =
+              PriceCreateParams.builder()
+                .setCurrency("usd")
+                .setUnitAmount(dto.getAmount())
+                .setRecurring(
+                  PriceCreateParams.Recurring.builder()
+                    .setInterval(PriceCreateParams.Recurring.Interval.MONTH)
+                    .build()
+                )
+                .setProductData(
+                  PriceCreateParams.ProductData.builder().setName("Monthly Donation").build()
+                )
+        .build();
+        Price price = Price.create(priceCreateParams);
+        SubscriptionCreateParams params =
+              SubscriptionCreateParams.builder()
+                .setCustomer(getStripeCustomerIdFromProfileService())
+                .addItem(
+                  SubscriptionCreateParams.Item.builder()
+                    .setPrice(price.getId())
+                    .build()
+                )
+                      .setBillingCycleAnchor(getNextBillingCycleAnchor())
+                .build();
+        return Subscription.create(params);
     }
 
+    private String getStripeCustomerIdFromProfileService() {
+      //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
+        return "cus_RTvFt09w0eed0B";
+    }
 
+    private long getNextBillingCycleAnchor() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime next15th = now.getDayOfMonth() > 15
+                ? now.plusMonths(1).withDayOfMonth(15)
+                : now.withDayOfMonth(15);
+        return next15th.toEpochSecond(ZoneOffset.UTC);
+    }
 
 }

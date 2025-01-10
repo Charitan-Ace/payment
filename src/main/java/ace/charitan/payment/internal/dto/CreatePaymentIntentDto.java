@@ -9,7 +9,6 @@ import lombok.NonNull;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreatePaymentIntentDto {
-    private String customerId;
     @NonNull
     private Long donationId;
     @NonNull

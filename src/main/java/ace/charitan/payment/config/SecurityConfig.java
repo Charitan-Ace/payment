@@ -12,9 +12,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
-//    @Autowired
-//    private AuthDetailsService authDetailsService;
-
     @Autowired
     private AuthCookieFilter filter;
 
@@ -26,7 +23,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests((requests) -> requests
                         .anyRequest().permitAll()
                 )
-//                .userDetailsService(authDetailsService)
                 .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

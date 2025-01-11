@@ -7,9 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateSubscriptionDto {
-    private String projectId;
-    private Double amount;
+public class CreateSetupIntentDto {
     private String successUrl;
     private String cancelUrl;
 }

@@ -1,18 +1,31 @@
 package ace.charitan.payment.internal.service;
 
+import ace.charitan.common.dto.profile.donor.DonorProfileDto;
 import ace.charitan.payment.external.service.ExternalPaymentService;
+import ace.charitan.payment.internal.auth.AuthUtils;
 import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreateCustomerDto;
+import ace.charitan.payment.internal.dto.CreateSetupIntentDto;
 import ace.charitan.payment.internal.dto.CreateSubscriptionDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.*;
+import com.stripe.model.checkout.Session;
 import com.stripe.param.*;
+import com.stripe.param.checkout.SessionCreateParams;
+import jakarta.ws.rs.NotFoundException;
+import org.apache.tomcat.util.json.JSONParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Service
 class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentService {
@@ -30,43 +43,61 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     @Override
-    public Customer getCustomer(String id) throws StripeException {
-        return Customer.retrieve(id);
-    }
-
-    @Override
-    public String createSetupIntent() throws StripeException {
+    public String createSetupIntentRedirectUrl(CreateSetupIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
         String stripeCustomerId = getStripeCustomerIdFromProfileService();
+
         Map<String, Object> params = new HashMap<>();
-        params.put("payment_method_types", new String[]{"card"});
-        SetupIntent intent = SetupIntent.create(params);
+        params.put("customer", stripeCustomerId);
+        params.put("payment_method_types", List.of("card"));
+        params.put("mode", "setup");
+        params.put("success_url", dto.getSuccessUrl() + "?session_id={CHECKOUT_SESSION_ID}");
+        params.put("cancel_url", dto.getCancelUrl());
 
-        return intent.getClientSecret();
+        Session session = Session.create(params);
+
+        return session.getUrl();
     }
 
     @Override
-    public PaymentIntent createPaymentIntent(CreatePaymentIntentDto dto) throws StripeException {
+    public String createPaymentRedirectUrl(CreatePaymentIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
         String stripeCustomerId = getStripeCustomerIdFromProfileService();
 
-        PaymentIntentCreateParams.Builder paramsBuilder = new PaymentIntentCreateParams.Builder()
-                .setAmount(dto.getAmount())
-                .setCurrency(dto.getCurrency())
-                .setAutomaticPaymentMethods(
-                        PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
-                                .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
-                                .setEnabled(true)
-                                .build())
-                .setCustomer(stripeCustomerId);
+        Long price = (long) (dto.getAmount() * 100);
 
-        PaymentIntentCreateParams params = paramsBuilder.build();
-        PaymentIntent intent = PaymentIntent.create(params);
+        SessionCreateParams.LineItem.PriceData.ProductData productData =
+                SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                        .setName("Donation")
+                        .build();
 
-        producer.updateDonationStripeId(dto.getDonationId(), intent.getId());
+        SessionCreateParams.LineItem.PriceData priceData =
+                SessionCreateParams.LineItem.PriceData.builder()
+                        .setCurrency(dto.getCurrency())
+                        .setUnitAmount(price)
+                        .setProductData(productData)
+                        .build();
 
-        return intent;
+        SessionCreateParams.LineItem lineItem =
+                SessionCreateParams.LineItem.builder()
+                        .setPriceData(priceData)
+                        .setQuantity(1L)
+                        .build();
+
+        SessionCreateParams params = SessionCreateParams.builder()
+                .setCustomer(stripeCustomerId)
+                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+                .addLineItem(lineItem)
+                .setMode(SessionCreateParams.Mode.PAYMENT)
+                .setSuccessUrl(dto.getSuccessUrl() + "?session_id={CHECKOUT_SESSION_ID}")
+                .setCancelUrl(dto.getCancelUrl())
+                .putMetadata("donationId", String.valueOf(dto.getDonationId()))
+                .build();
+
+        Session session = Session.create(params);
+
+        return session.getUrl();
     }
 
-    public List<PaymentMethod> getPaymentMethods() {
+    public List<PaymentMethod> getPaymentMethods() throws AccessDeniedException, ExecutionException, InterruptedException {
         String stripeCustomerId = getStripeCustomerIdFromProfileService();
 
         try {
@@ -81,40 +112,139 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         }
     }
 
-    public Subscription createSubscription(CreateSubscriptionDto dto) throws StripeException {
-        PriceCreateParams priceCreateParams =
-              PriceCreateParams.builder()
+    @Override
+    public String createSubscriptionRedirectUrl(CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
+        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+
+        Long priceLong = (long) (dto.getAmount() * 100);
+
+        PriceCreateParams priceCreateParams = PriceCreateParams.builder()
                 .setCurrency("usd")
-                .setUnitAmount(dto.getAmount())
+                .setUnitAmount(priceLong)
                 .setRecurring(
-                  PriceCreateParams.Recurring.builder()
-                    .setInterval(PriceCreateParams.Recurring.Interval.MONTH)
-                    .build()
+                        PriceCreateParams.Recurring.builder()
+                                .setInterval(PriceCreateParams.Recurring.Interval.MONTH)
+                                .build()
                 )
                 .setProductData(
-                  PriceCreateParams.ProductData.builder().setName("Monthly Donation").build()
+                        PriceCreateParams.ProductData.builder()
+                                .setName("Monthly Donation")
+                                .build()
                 )
-        .build();
+                .build();
+
         Price price = Price.create(priceCreateParams);
-        SubscriptionCreateParams params =
-              SubscriptionCreateParams.builder()
-                .setCustomer(getStripeCustomerIdFromProfileService())
-                .addItem(
-                  SubscriptionCreateParams.Item.builder()
-                    .setPrice(price.getId())
-                    .build()
-                )
-              .setBillingCycleAnchor(getNextBillingCycleAnchor())
-                      .putMetadata("donorId", "from cookie")
-                      .putMetadata("projectId", dto.getProjectId())
-            .build();
-        return Subscription.create(params);
+
+        UserDetails userDetails = AuthUtils.getUserDetails();
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("projectId", dto.getProjectId());
+        metadata.put("amount", String.valueOf(dto.getAmount()));
+        metadata.put("message", "Monthly donation for project " + dto.getProjectId());
+        if (userDetails != null) {
+            String userId = userDetails.getUsername();
+            metadata.put("donorId", userId);
+        }
+
+        SessionCreateParams.SubscriptionData subscriptionData = SessionCreateParams.SubscriptionData.builder()
+                .setBillingCycleAnchor(getNextBillingCycleAnchor())
+                .putAllMetadata(metadata)
+                .build();
+
+
+        SessionCreateParams params = SessionCreateParams.builder()
+                .setCustomer(stripeCustomerId)
+                .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
+                .addLineItem(SessionCreateParams.LineItem.builder()
+                        .setPrice(price.getId())
+                        .setQuantity(1L)
+                        .build())
+                .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
+                .setSuccessUrl(dto.getSuccessUrl() + "?session_id={CHECKOUT_SESSION_ID}")
+                .setCancelUrl(dto.getCancelUrl())
+                .setSubscriptionData(subscriptionData)
+                .build();
+
+        Session session = Session.create(params);
+
+        return session.getUrl();
     }
 
-    private String getStripeCustomerIdFromProfileService() {
+    @Override
+    public void handleStripeWebhookEvent(Event event) throws JsonProcessingException {
+        System.out.println("Webhook triggered: " + event.getType());
+        switch (event.getType()) {
+            case "checkout.session.completed":
+                handleCheckoutSessionCompleted(event);
+                break;
+            case "invoice.payment_succeeded":
+                handleSubscriptionChargeCompleted(event);
+                break;
+            default:
+                System.out.println("Unhandled event type: " + event.getType());
+                break;
+        }
+
+    }
+
+    private void handleCheckoutSessionCompleted(Event event) {
+            EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+            if (deserializer.getObject().isPresent()) {
+                Session session = (Session) deserializer.getObject().get();
+
+                Map<String, String> metadata = session.getMetadata();
+                String donationId = metadata.get("donationId");
+
+                producer.updateDonationStripeId(Long.parseLong(donationId), session.getPaymentIntent());
+            } else {
+                throw new IllegalArgumentException("Failed to deserialize session data");
+            }
+    }
+
+    private void handleSubscriptionChargeCompleted(Event event) {
+        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+        if (deserializer.getObject().isPresent()) {
+            Invoice invoice = (Invoice) deserializer.getObject().get();
+
+            String subscriptionId = invoice.getSubscription();
+
+            if (subscriptionId != null) {
+                try {
+                    Subscription subscription = Subscription.retrieve(subscriptionId);
+
+                    Map<String, String> subscriptionMetadata = subscription.getMetadata();
+                    System.out.println("Subscription Metadata: " + subscriptionMetadata);
+
+                    String projectId = subscriptionMetadata.get("projectId");
+                    String donorId = subscriptionMetadata.get("donorId");
+                    Double amount = Double.parseDouble(subscriptionMetadata.get("amount"));
+                    String message = subscriptionMetadata.get("message");
+
+                    producer.createMonthlyDonation(amount, message, invoice.getPaymentIntent(), projectId, donorId);
+
+                } catch (StripeException e) {
+                    System.err.println("Failed to fetch subscription details: " + e.getMessage());
+                }
+            }
+
+        } else {
+            throw new IllegalArgumentException("Failed to deserialize session data");
+        }
+
+    }
+
+    private String getStripeCustomerIdFromProfileService() throws ExecutionException, InterruptedException, AccessDeniedException {
       //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-//        return "cus_abc";
-        return "cus_RVnFt7faKUzkoS";
+        return "cus_RZ96M5nxkDbgxN";
+//        UserDetails userDetails = AuthUtils.getUserDetails();
+//        if (userDetails != null) {
+//            String userId = userDetails.getUsername();
+//
+//            List<DonorProfileDto> donorProfiles = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
+//            DonorProfileDto donor = donorProfiles.getFirst();
+//            return donor.stripeId();
+//        } else {
+//            throw new AccessDeniedException("You must login to use this function");
+//        }
     }
 
     private long getNextBillingCycleAnchor() {
@@ -124,5 +254,6 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                 : now.withDayOfMonth(15);
         return next15th.toEpochSecond(ZoneOffset.UTC);
     }
+
 
 }

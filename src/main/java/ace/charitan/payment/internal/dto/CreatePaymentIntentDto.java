@@ -9,10 +9,9 @@ import lombok.NonNull;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreatePaymentIntentDto {
-    @NonNull
     private Long donationId;
-    @NonNull
-    private Long amount;
-    @NonNull
+    private Double amount;
     private String currency;
+    private String successUrl;
+    private String cancelUrl;
 }

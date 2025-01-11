@@ -7,9 +7,6 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateSubscriptionDto {
-    private String projectId;
-    private Double amount;
-    private String successUrl;
-    private String cancelUrl;
+public class StripeRedirectUrlResponseDto {
+    private String redirectUrl;
 }

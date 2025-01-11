@@ -1,21 +1,26 @@
 package ace.charitan.payment.internal.controller;
 
-import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
-import ace.charitan.payment.internal.dto.CreateCustomerDto;
-import ace.charitan.payment.internal.dto.CreateSubscriptionDto;
+import ace.charitan.payment.internal.dto.*;
 import ace.charitan.payment.internal.service.InternalPaymentService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.PaymentMethod;
 import com.stripe.model.Subscription;
+import com.stripe.model.checkout.Session;
+import com.stripe.net.Webhook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 class PaymentController {
@@ -24,19 +29,10 @@ class PaymentController {
     private InternalPaymentService service;
 
 
-    @PostMapping("/create-payment-intent")
-    public ResponseEntity<Map<String, Object>> createPaymentIntent(@RequestBody CreatePaymentIntentDto dto) throws StripeException {
-        PaymentIntent intent = service.createPaymentIntent(dto);
-
-        // Create a simplified response
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", intent.getId());
-        response.put("client_secret", intent.getClientSecret());
-        response.put("amount", intent.getAmount());
-        response.put("currency", intent.getCurrency());
-        response.put("status", intent.getStatus());
-
-        return ResponseEntity.ok(response);
+    @PostMapping("/donation-checkout")
+    public ResponseEntity<StripeRedirectUrlResponseDto> createPaymentIntent(@RequestBody CreatePaymentIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
+        String redirectUrl = service.createPaymentRedirectUrl(dto);
+        return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
     }
 
     @PostMapping("/create-customer")
@@ -45,26 +41,34 @@ class PaymentController {
         return ResponseEntity.ok(customerId);
     }
 
-    @PostMapping("/create-setup-intent")
-    public ResponseEntity<String> createSetupIntent() throws StripeException {
-        String clientSecret = service.createSetupIntent();
-        return ResponseEntity.ok(clientSecret);
+    @PostMapping("/card-setup")
+    public ResponseEntity<StripeRedirectUrlResponseDto> createSetupIntent(@RequestBody CreateSetupIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
+        String redirectUrl = service.createSetupIntentRedirectUrl(dto);
+        return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
     }
 
-    @GetMapping("/payment-methods")
-    public ResponseEntity<List<PaymentMethod>> getPaymentMethods() throws StripeException {
-        List<PaymentMethod> paymentMethods = service.getPaymentMethods();
-        return ResponseEntity.ok(paymentMethods);
+    @PostMapping("/monthly-subscription")
+    public ResponseEntity<StripeRedirectUrlResponseDto> createSubscription(@RequestBody CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
+        String redirectUrl = service.createSubscriptionRedirectUrl(dto);
+        return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
     }
 
-    @PostMapping("/create-subscription")
-    public ResponseEntity<String> createSubscription(@RequestBody CreateSubscriptionDto dto) {
+
+    @PostMapping("/webhook")
+    public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload,
+                                                      @RequestHeader("Stripe-Signature") String sigHeader) {
+        String endpointSecret = System.getenv("STRIPE_WEBHOOK_SECRET");
+        Event event;
+
         try {
-            Subscription subscription = service.createSubscription(dto);
-            return ResponseEntity.ok(subscription.getId());
-        } catch (StripeException e) {
-            return new ResponseEntity(e.getMessage(), HttpStatus.FAILED_DEPENDENCY);
+            event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
+            service.handleStripeWebhookEvent(event);
+        } catch (SignatureVerificationException e) {
+            return ResponseEntity.badRequest().body("Invalid signature");
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
-    }
 
+        return ResponseEntity.ok("Webhook received");
+    }
 }

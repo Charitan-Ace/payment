@@ -75,7 +75,7 @@
 		<dependency>
 			<groupId>com.stripe</groupId>
 			<artifactId>stripe-java</artifactId>
-			<version>28.2.0-beta.4</version>
+			<version>28.3.0-beta.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
@@ -85,7 +85,7 @@
 		<dependency>
 			<groupId>ace.charitan</groupId>
 			<artifactId>common</artifactId>
-			<version>0.0.10-SNAPSHOT</version>
+			<version>0.0.42-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

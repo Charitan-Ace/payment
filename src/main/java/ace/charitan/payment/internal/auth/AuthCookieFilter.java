@@ -30,7 +30,6 @@ public class AuthCookieFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Ignore WebSocket related endpoints
         return path.contains("/ws/") ||
                path.contains("/websocket") ||
                path.contains("/info") ||
@@ -72,9 +71,10 @@ public class AuthCookieFilter extends OncePerRequestFilter {
         Claims claims = jwtService.parseJwsPayload(authCookie.getValue());
         String id = claims.get("id", String.class);
         String roleId = claims.get("roleId", String.class);
+        String email = claims.get("email", String.class);
 
         System.out.println("Auth filter id: " + id);
-        authDetailsService.setRole(roleId);
+        authDetailsService.setRole(roleId, email);
         var details = authDetailsService.loadUserByUsername(id);
 
         UsernamePasswordAuthenticationToken token =

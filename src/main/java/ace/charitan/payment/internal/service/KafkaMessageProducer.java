@@ -3,6 +3,7 @@ package ace.charitan.payment.internal.service;
 import ace.charitan.common.dto.donation.CreateMonthlyDonationDto;
 import ace.charitan.common.dto.donation.UpdateDonationStripeIdDto;
 import ace.charitan.common.dto.profile.donor.DonorProfileDto;
+import ace.charitan.common.dto.profile.donor.DonorsDto;
 import ace.charitan.common.dto.profile.donor.GetDonorProfileByIdsRequestDto;
 import ace.charitan.common.dto.profile.donor.GetDonorProfileByIdsResponseDto;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -35,7 +36,7 @@ class KafkaMessageProducer {
         kafkaTemplate.send("update-donation-stripe-id", dto);
     }
 
-    public List<DonorProfileDto> getDonorProfilesById(List<UUID> ids) throws ExecutionException, InterruptedException {
+    public DonorsDto getDonorProfilesById(List<UUID> ids) throws ExecutionException, InterruptedException {
         GetDonorProfileByIdsRequestDto dto = new GetDonorProfileByIdsRequestDto(ids);
 
         ProducerRecord<String, Object> record = new ProducerRecord<>("profile.get.donors.profile", dto);

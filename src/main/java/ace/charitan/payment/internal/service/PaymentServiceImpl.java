@@ -1,22 +1,20 @@
 package ace.charitan.payment.internal.service;
 
 import ace.charitan.common.dto.profile.donor.DonorProfileDto;
+import ace.charitan.common.dto.profile.donor.DonorsDto;
 import ace.charitan.payment.external.service.ExternalPaymentService;
+import ace.charitan.payment.internal.auth.AuthModel;
 import ace.charitan.payment.internal.auth.AuthUtils;
 import ace.charitan.payment.internal.dto.CreatePaymentIntentDto;
 import ace.charitan.payment.internal.dto.CreateCustomerDto;
 import ace.charitan.payment.internal.dto.CreateSetupIntentDto;
 import ace.charitan.payment.internal.dto.CreateSubscriptionDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.*;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.*;
 import com.stripe.param.checkout.SessionCreateParams;
-import jakarta.ws.rs.NotFoundException;
-import org.apache.tomcat.util.json.JSONParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -135,13 +133,13 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
         Price price = Price.create(priceCreateParams);
 
-        UserDetails userDetails = AuthUtils.getUserDetails();
+        AuthModel authModel = AuthUtils.getUserDetails();
         Map<String, String> metadata = new HashMap<>();
         metadata.put("projectId", dto.getProjectId());
         metadata.put("amount", String.valueOf(dto.getAmount()));
         metadata.put("message", "Monthly donation for project " + dto.getProjectId());
-        if (userDetails != null) {
-            String userId = userDetails.getUsername();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
             metadata.put("donorId", userId);
         }
 
@@ -234,17 +232,17 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     private String getStripeCustomerIdFromProfileService() throws ExecutionException, InterruptedException, AccessDeniedException {
       //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-        return "cus_RZ96M5nxkDbgxN";
-//        UserDetails userDetails = AuthUtils.getUserDetails();
-//        if (userDetails != null) {
-//            String userId = userDetails.getUsername();
-//
-//            List<DonorProfileDto> donorProfiles = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
-//            DonorProfileDto donor = donorProfiles.getFirst();
-//            return donor.stripeId();
-//        } else {
-//            throw new AccessDeniedException("You must login to use this function");
-//        }
+//        return "cus_RZ96M5nxkDbgxN";
+        AuthModel authModel = AuthUtils.getUserDetails();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
+
+            DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
+            DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
+            return profile.stripeId();
+        } else {
+            throw new AccessDeniedException("You must login to use this function");
+        }
     }
 
     private long getNextBillingCycleAnchor() {

@@ -1,6 +1,5 @@
 package ace.charitan.payment.internal.auth;
 
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -9,13 +8,15 @@ import org.springframework.stereotype.Service;
 public class AuthDetailsService implements UserDetailsService {
 
     private String roleId;
+    private String email;
 
-    public void setRole(String roleId) {
+    public void setRole(String roleId, String email) {
         this.roleId = roleId;
+        this.email = email;
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return new AuthModel(username, roleId, true);
+    public AuthModel loadUserByUsername(String username) throws UsernameNotFoundException {
+        return new AuthModel(username, email, roleId, true);
     }
 }

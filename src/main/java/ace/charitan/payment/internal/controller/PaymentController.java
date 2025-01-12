@@ -53,6 +53,11 @@ class PaymentController {
         return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
     }
 
+    @DeleteMapping("/monthly-subscription/{projectId}")
+    public ResponseEntity<Boolean> cancelSubscription(@PathVariable(name = "projectId") String projectId) throws StripeException {
+        return ResponseEntity.ok(service.cancelStripeSubscription(projectId));
+    }
+
 
     @PostMapping("/webhook")
     public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload,

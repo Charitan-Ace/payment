@@ -1,6 +1,21 @@
 spring:
   application:
     name: payment
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: "payment-service"
+      value-deserializer: org.springframework.kafka.support.serializer.DelegatingByTopicDeserializer
+      properties:
+        spring.kafka.value.serialization.bytopic.config: "key.+:org.apache.kafka.common.serialization.StringDeserializer"
+        spring.kafka.value.serialization.bytopic.default: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring:
+        json:
+          trusted:
+            packages: "ace.charitan.*"
 stripe:
   secret:
     key: ${STRIPE_SECRET_KEY}

@@ -233,17 +233,17 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     private String getStripeCustomerIdFromProfileService() throws ExecutionException, InterruptedException, AccessDeniedException {
       //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-//        return "cus_RZ96M5nxkDbgxN";
-        AuthModel authModel = AuthUtils.getUserDetails();
-        if (authModel != null) {
-            String userId = authModel.getUsername();
-
-            DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
-            DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
-            return profile.stripeId();
-        } else {
-            throw new AccessDeniedException("You must login to use this function");
-        }
+        return "cus_RZ96M5nxkDbgxN";
+//        AuthModel authModel = AuthUtils.getUserDetails();
+//        if (authModel != null) {
+//            String userId = authModel.getUsername();
+//
+//            DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
+//            DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
+//            return profile.stripeId();
+//        } else {
+//            throw new AccessDeniedException("You must login to use this function");
+//        }
     }
 
     private long getNextBillingCycleAnchor() {
@@ -259,7 +259,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         if (authModel != null) {
             String userId = authModel.getUsername();
             SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                    .setQuery(String.format("metadata['projectId']: %s AND metadata['donorId']: %s", projectId, userId))
+                    .setQuery(String.format("metadata['donorId']: %s", userId))
                     .setLimit(Long.MAX_VALUE)
                     .build();
 

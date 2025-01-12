@@ -15,6 +15,7 @@ import com.stripe.model.*;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.*;
 import com.stripe.param.checkout.SessionCreateParams;
+import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -252,6 +253,68 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                 : now.withDayOfMonth(15);
         return next15th.toEpochSecond(ZoneOffset.UTC);
     }
+
+    public List<String> getSubscribedProjects() throws StripeException {
+        AuthModel authModel = AuthUtils.getUserDetails();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
+            SubscriptionSearchParams params = SubscriptionSearchParams.builder()
+                    .setQuery(String.format("metadata['projectId']: %s AND metadata['donorId']: %s", projectId, userId))
+                    .setLimit(Long.MAX_VALUE)
+                    .build();
+
+            List<Subscription> subscriptions = Subscription.search(params).getData();
+
+            return subscriptions.stream().map(
+                    subscription -> {
+                        Map<String, String> metadata = subscription.getMetadata();
+                        return metadata.get("projectId");
+                    }).toList();
+
+        } else {
+            throw new RuntimeException("Unauthorized");
+        }
+    }
+
+    public Boolean cancelStripeSubscription(String projectId) throws StripeException {
+        AuthModel authModel = AuthUtils.getUserDetails();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
+            SubscriptionSearchParams params = SubscriptionSearchParams.builder()
+                    .setQuery(String.format("metadata['projectId']: %s AND metadata['donorId']: %s", projectId, userId))
+                    .setLimit(Long.MAX_VALUE)
+                    .build();
+
+            return cancelSubscriptions(params);
+
+        } else {
+            throw new RuntimeException("Unauthorized");
+        }
+    }
+
+    public void cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException {
+        SubscriptionSearchParams params = SubscriptionSearchParams.builder()
+                .setQuery(String.format("metadata['projectId']: %s", projectId))
+                .setLimit(Long.MAX_VALUE)
+                .build();
+        cancelSubscriptions(params);
+    }
+
+    private Boolean cancelSubscriptions(SubscriptionSearchParams params) throws StripeException {
+        List<Subscription> subscriptions = Subscription.search(params).getData();
+
+        List<Subscription> cancelledSubscriptions = subscriptions.parallelStream()
+                .map(subscription -> {
+                    try {
+                        return subscription.cancel();
+                    } catch (Exception e) {
+                        throw new RuntimeException("Exception while canceling subscription", e);
+                    }
+                }).toList();
+
+        return true;
+    }
+
 
 
 }

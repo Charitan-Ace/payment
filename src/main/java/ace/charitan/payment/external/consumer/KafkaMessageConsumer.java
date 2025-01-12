@@ -1,21 +1,21 @@
 package ace.charitan.payment.external.consumer;
 
 
+import ace.charitan.common.dto.payment.CancelHaltedProjectSubscriptionRequestDto;
+import ace.charitan.payment.external.service.ExternalPaymentService;
+import com.stripe.exception.StripeException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
 public class KafkaMessageConsumer {
+    @Autowired
+    private ExternalPaymentService service;
 
-    @KafkaListener(topics = "payment-test", groupId = "payment")
-    public void listen(String message) {
-        System.out.println("Payment microservice received message: " + message);
+    @KafkaListener(topics = "payment.halt-project-subscriptions")
+    public void cancelSubscriptionsForHaltProject(CancelHaltedProjectSubscriptionRequestDto dto) throws StripeException {
+        service.cancelStripeSubscriptionForHaltProject(dto.getProjectId());
     }
-
-    @KafkaListener(topics = "payment-response", groupId = "payment")
-    public void listena(String message) {
-        System.out.println("Payment microservice received message: " + message);
-    }
-
 }
 

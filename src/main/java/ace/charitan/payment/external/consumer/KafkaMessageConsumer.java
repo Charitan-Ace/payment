@@ -28,7 +28,7 @@ public class KafkaMessageConsumer {
     @KafkaListener(topics = "payment.create-payment-redirect-url")
     @SendTo
     public CreateDonationPaymentRedirectUrlResponseDto createPaymentRedirectUrl(CreateDonationPaymentRedirectUrlRequestDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
-        String redirectUrl = service.createPaymentRedirectUrl(new CreatePaymentIntentDto(dto.getDonationId(), dto.getAmount(), "usd", dto.getSuccessUrl(), dto.getCancelUrl()));
+        String redirectUrl = service.createPaymentRedirectUrl(new CreatePaymentIntentDto(dto.getUserId(), dto.getDonationId(), dto.getAmount(), "usd", dto.getSuccessUrl(), dto.getCancelUrl()));
         return new CreateDonationPaymentRedirectUrlResponseDto(redirectUrl);
     }
 }

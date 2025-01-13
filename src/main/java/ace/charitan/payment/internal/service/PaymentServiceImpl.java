@@ -43,7 +43,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     @Override
     public String createSetupIntentRedirectUrl(CreateSetupIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
-        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+        String stripeCustomerId = getStripeCustomerIdFromContext();
 
         Map<String, Object> params = new HashMap<>();
         params.put("customer", stripeCustomerId);
@@ -58,8 +58,8 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     @Override
-    public String createPaymentRedirectUrl(CreatePaymentIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
-        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+    public String createPaymentRedirectUrl(CreatePaymentIntentDto dto) throws StripeException, ExecutionException, InterruptedException {
+        String stripeCustomerId = getStripeCustomerIdFromUserId(dto.getUserId());
 
         Long price = (long) (dto.getAmount() * 100);
 
@@ -97,7 +97,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     public List<PaymentMethod> getPaymentMethods() throws AccessDeniedException, ExecutionException, InterruptedException {
-        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+        String stripeCustomerId = getStripeCustomerIdFromContext();
 
         try {
             PaymentMethodListParams params = PaymentMethodListParams.builder()
@@ -113,7 +113,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     @Override
     public String createSubscriptionRedirectUrl(CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
-        String stripeCustomerId = getStripeCustomerIdFromProfileService();
+        String stripeCustomerId = getStripeCustomerIdFromContext();
 
         Long priceLong = (long) (dto.getAmount() * 100);
 
@@ -231,19 +231,27 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     }
 
-    private String getStripeCustomerIdFromProfileService() throws ExecutionException, InterruptedException, AccessDeniedException {
+    private String getStripeCustomerIdFromContext() throws ExecutionException, InterruptedException, AccessDeniedException {
       //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-        return "cus_RZ96M5nxkDbgxN";
-//        AuthModel authModel = AuthUtils.getUserDetails();
-//        if (authModel != null) {
-//            String userId = authModel.getUsername();
-//
-//            DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
-//            DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
-//            return profile.stripeId();
-//        } else {
-//            throw new AccessDeniedException("You must login to use this function");
-//        }
+//        return "cus_RZ96M5nxkDbgxN";
+        AuthModel authModel = AuthUtils.getUserDetails();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
+
+            DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
+            System.out.println(donorsDto.donorProfilesList().size());
+            donorsDto.donorProfilesList().forEach(System.out::println);
+            DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
+            return profile.stripeId();
+        } else {
+            throw new AccessDeniedException("You must login to use this function");
+        }
+    }
+
+    private String getStripeCustomerIdFromUserId(String userId) throws ExecutionException, InterruptedException {
+        DonorsDto donorsDto = producer.getDonorProfilesById(List.of(UUID.fromString(userId)));
+        DonorProfileDto profile = donorsDto.donorProfilesList().getFirst();
+        return profile.stripeId();
     }
 
     private long getNextBillingCycleAnchor() {

@@ -120,11 +120,12 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         if (authModel != null) {
             String userId = authModel.getUsername();
             SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                    .setQuery(String.format("metadata['projectId']: '%s' AND metadata['donorId']: '%s'", dto.getProjectId(), userId))
+                    .setQuery(String.format("status:'active' AND metadata['projectId']: '%s' AND metadata['donorId']: '%s'", dto.getProjectId(), userId))
                     .setLimit(100L)
                     .build();
             List<Subscription> subscriptionList = Subscription.search(params).getData();
             if (!subscriptionList.isEmpty()) {
+                System.out.println(subscriptionList);
                 throw new RuntimeException("You already has a monthly donation to this project");
             }
         }
@@ -277,7 +278,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         if (authModel != null) {
             String userId = authModel.getUsername();
             SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                    .setQuery(String.format("metadata['donorId']: '%s'", userId))
+                    .setQuery(String.format("status:'active' AND metadata['donorId']: '%s'", userId))
                     .setLimit(100L)
                     .build();
 
@@ -299,7 +300,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         if (authModel != null) {
             String userId = authModel.getUsername();
             SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                    .setQuery(String.format("metadata['projectId']: '%s' AND metadata['donorId']: '%s'", projectId, userId))
+                    .setQuery(String.format("status:'active' AND metadata['projectId']: '%s' AND metadata['donorId']: '%s'", projectId, userId))
                     .setLimit(100L)
                     .build();
 
@@ -313,7 +314,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     public List<String> cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException {
         SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                .setQuery(String.format("metadata['projectId']: %s", projectId))
+                .setQuery(String.format("status:'active' AND metadata['projectId']: %s", projectId))
                 .setLimit(100L)
                 .build();
         List<Subscription> subscriptions = cancelSubscriptions(params);

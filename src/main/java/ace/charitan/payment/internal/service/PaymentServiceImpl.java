@@ -314,7 +314,7 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
     public List<String> cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException {
         SubscriptionSearchParams params = SubscriptionSearchParams.builder()
-                .setQuery(String.format("status:'active' AND metadata['projectId']: %s", projectId))
+                .setQuery(String.format("status:'active' AND metadata['projectId']: '%s'", projectId))
                 .setLimit(100L)
                 .build();
         List<Subscription> subscriptions = cancelSubscriptions(params);

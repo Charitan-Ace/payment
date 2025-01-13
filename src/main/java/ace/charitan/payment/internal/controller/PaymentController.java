@@ -53,7 +53,7 @@ class PaymentController {
             String redirectUrl = service.createSubscriptionRedirectUrl(dto);
             return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
         } catch (Exception e){
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(new StripeRedirectUrlResponseDto(e.getMessage()));
         }
     }
 

@@ -18,6 +18,5 @@ public interface InternalPaymentService {
     String createPaymentRedirectUrl(CreatePaymentIntentDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException;
     String createSubscriptionRedirectUrl(CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException;
     void handleStripeWebhookEvent(Event event) throws JsonProcessingException;
-    void cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException;
     Boolean cancelStripeSubscription(String projectId) throws StripeException;
 }

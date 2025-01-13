@@ -2,6 +2,7 @@ package ace.charitan.payment.external.consumer;
 
 
 import ace.charitan.common.dto.payment.CancelHaltedProjectSubscriptionRequestDto;
+import ace.charitan.common.dto.payment.CancelHaltedProjectSubscriptionResponseDto;
 import ace.charitan.common.dto.payment.CreateDonationPaymentRedirectUrlRequestDto;
 import ace.charitan.common.dto.payment.CreateDonationPaymentRedirectUrlResponseDto;
 import ace.charitan.payment.external.service.ExternalPaymentService;
@@ -21,8 +22,9 @@ public class KafkaMessageConsumer {
     private ExternalPaymentService service;
 
     @KafkaListener(topics = "payment.halt-project-subscriptions")
-    public void cancelSubscriptionsForHaltProject(CancelHaltedProjectSubscriptionRequestDto dto) throws StripeException {
-        service.cancelStripeSubscriptionForHaltProject(dto.getProjectId());
+    @SendTo
+    public CancelHaltedProjectSubscriptionResponseDto cancelSubscriptionsForHaltProject(CancelHaltedProjectSubscriptionRequestDto dto) throws StripeException {
+        return new CancelHaltedProjectSubscriptionResponseDto(service.cancelStripeSubscriptionForHaltProject(dto.getProjectId()));
     }
 
     @KafkaListener(topics = "payment.create-payment-redirect-url")

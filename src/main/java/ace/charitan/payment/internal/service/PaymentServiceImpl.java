@@ -302,18 +302,18 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
         }
     }
 
-    public void cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException {
+    public List<String> cancelStripeSubscriptionForHaltProject(String projectId) throws StripeException {
         SubscriptionSearchParams params = SubscriptionSearchParams.builder()
                 .setQuery(String.format("metadata['projectId']: %s", projectId))
                 .setLimit(Long.MAX_VALUE)
                 .build();
         List<Subscription> subscriptions = cancelSubscriptions(params);
-        List<String> donorIds = subscriptions.stream().map(
+        return subscriptions.stream().map(
                 subscription -> {
                     Map<String, String> metadata = subscription.getMetadata();
                     return metadata.get("donorId");
                 }).toList();
-        donorIds.forEach(donorId -> producer.sendCancelSubscriptionEmail(new EmailPaymentHaltedProjectCancelSubscriptionEmailDto(donorId, "Monthly subscription cancellation", "Monthly donation subscription for project " + projectId + " is cancelled.")));
+//        donorIds.forEach(donorId -> producer.sendCancelSubscriptionEmail(new EmailPaymentHaltedProjectCancelSubscriptionEmailDto(donorId, "Monthly subscription cancellation", "Monthly donation subscription for project " + projectId + " is cancelled.")));
     }
 
     private List<Subscription> cancelSubscriptions(SubscriptionSearchParams params) throws StripeException {

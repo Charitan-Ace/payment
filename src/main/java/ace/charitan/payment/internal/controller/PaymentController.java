@@ -49,8 +49,12 @@ class PaymentController {
 
     @PostMapping("/monthly-subscription")
     public ResponseEntity<StripeRedirectUrlResponseDto> createSubscription(@RequestBody CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
-        String redirectUrl = service.createSubscriptionRedirectUrl(dto);
-        return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
+        try {
+            String redirectUrl = service.createSubscriptionRedirectUrl(dto);
+            return ResponseEntity.ok(new StripeRedirectUrlResponseDto(redirectUrl));
+        } catch (Exception e){
+            return ResponseEntity.badRequest().body(null);
+        }
     }
 
     @DeleteMapping("/monthly-subscription/{projectId}")

@@ -116,6 +116,18 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     public String createSubscriptionRedirectUrl(CreateSubscriptionDto dto) throws StripeException, AccessDeniedException, ExecutionException, InterruptedException {
         String stripeCustomerId = getStripeCustomerIdFromContext();
 
+        AuthModel authModel = AuthUtils.getUserDetails();
+        if (authModel != null) {
+            String userId = authModel.getUsername();
+            SubscriptionSearchParams params = SubscriptionSearchParams.builder()
+                    .setQuery(String.format("metadata['projectId']: %s AND metadata['donorId']: %s", dto.getProjectId(), userId))
+                    .setLimit(Long.MAX_VALUE)
+                    .build();
+            List<Subscription> subscriptionList = Subscription.search(params).getData();
+            if (!subscriptionList.isEmpty()) {
+                throw new RuntimeException("You already has a monthly donation to this project");
+            }
+        }
         Long priceLong = (long) (dto.getAmount() * 100);
 
         PriceCreateParams priceCreateParams = PriceCreateParams.builder()
@@ -135,7 +147,6 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
 
         Price price = Price.create(priceCreateParams);
 
-        AuthModel authModel = AuthUtils.getUserDetails();
         Map<String, String> metadata = new HashMap<>();
         metadata.put("projectId", dto.getProjectId());
         metadata.put("amount", String.valueOf(dto.getAmount()));
@@ -233,8 +244,6 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     private String getStripeCustomerIdFromContext() throws ExecutionException, InterruptedException, AccessDeniedException {
-      //TODO: GET STRIPE CUSTOMER ID FROM PROFILE SERVICE HERE
-//        return "cus_RZ96M5nxkDbgxN";
         AuthModel authModel = AuthUtils.getUserDetails();
         if (authModel != null) {
             String userId = authModel.getUsername();

@@ -31,5 +31,6 @@ public class KafkaMessageConsumer {
         String redirectUrl = service.createPaymentRedirectUrl(new CreatePaymentIntentDto(dto.getUserId(), dto.getDonationId(), dto.getAmount(), "usd", dto.getSuccessUrl(), dto.getCancelUrl()));
         return new CreateDonationPaymentRedirectUrlResponseDto(redirectUrl);
     }
+
 }
 

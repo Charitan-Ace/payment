@@ -53,10 +53,6 @@
 			<artifactId>kafka-clients</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.kafka</groupId>
-			<artifactId>spring-kafka</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>jakarta.persistence</groupId>
 			<artifactId>jakarta.persistence-api</artifactId>
 		</dependency>
@@ -85,7 +81,7 @@
 		<dependency>
 			<groupId>ace.charitan</groupId>
 			<artifactId>common</artifactId>
-			<version>0.0.73-SNAPSHOT</version>
+			<version>0.0.76-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

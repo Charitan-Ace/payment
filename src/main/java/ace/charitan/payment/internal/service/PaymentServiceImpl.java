@@ -1,5 +1,6 @@
 package ace.charitan.payment.internal.service;
 
+import ace.charitan.common.dto.email.payment.EmailPaymentHaltedProjectCancelSubscriptionEmailDto;
 import ace.charitan.common.dto.profile.donor.DonorProfileDto;
 import ace.charitan.common.dto.profile.donor.DonorsDto;
 import ace.charitan.payment.external.service.ExternalPaymentService;
@@ -293,10 +294,11 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                     .setLimit(Long.MAX_VALUE)
                     .build();
 
-            return cancelSubscriptions(params);
+            cancelSubscriptions(params);
+            return true;
 
         } else {
-            throw new RuntimeException("Unauthorized");
+            throw new RuntimeException("No auth model");
         }
     }
 
@@ -305,13 +307,19 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                 .setQuery(String.format("metadata['projectId']: %s", projectId))
                 .setLimit(Long.MAX_VALUE)
                 .build();
-        cancelSubscriptions(params);
+        List<Subscription> subscriptions = cancelSubscriptions(params);
+        List<String> donorIds = subscriptions.stream().map(
+                subscription -> {
+                    Map<String, String> metadata = subscription.getMetadata();
+                    return metadata.get("donorId");
+                }).toList();
+        donorIds.forEach(donorId -> producer.sendCancelSubscriptionEmail(new EmailPaymentHaltedProjectCancelSubscriptionEmailDto(donorId, "Monthly subscription cancellation", "Monthly donation subscription for project " + projectId + " is cancelled.")));
     }
 
-    private Boolean cancelSubscriptions(SubscriptionSearchParams params) throws StripeException {
+    private List<Subscription> cancelSubscriptions(SubscriptionSearchParams params) throws StripeException {
         List<Subscription> subscriptions = Subscription.search(params).getData();
 
-        List<Subscription> cancelledSubscriptions = subscriptions.parallelStream()
+        return subscriptions.parallelStream()
                 .map(subscription -> {
                     try {
                         return subscription.cancel();
@@ -319,8 +327,6 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
                         throw new RuntimeException("Exception while canceling subscription", e);
                     }
                 }).toList();
-
-        return true;
     }
 
 

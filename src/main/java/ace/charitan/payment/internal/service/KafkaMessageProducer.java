@@ -2,6 +2,7 @@ package ace.charitan.payment.internal.service;
 
 import ace.charitan.common.dto.donation.CreateMonthlyDonationDto;
 import ace.charitan.common.dto.donation.UpdateDonationStripeIdDto;
+import ace.charitan.common.dto.email.payment.EmailPaymentHaltedProjectCancelSubscriptionEmailDto;
 import ace.charitan.common.dto.profile.donor.DonorProfileDto;
 import ace.charitan.common.dto.profile.donor.DonorsDto;
 import ace.charitan.common.dto.profile.donor.GetDonorProfileByIdsRequestDto;
@@ -51,6 +52,10 @@ class KafkaMessageProducer {
     public void createMonthlyDonation(Double amount, String message, String transactionStripeId, String projectId, String donorId) {
         CreateMonthlyDonationDto dto = new CreateMonthlyDonationDto(amount, message, transactionStripeId, projectId, donorId);
         kafkaTemplate.send("create-monthly-donation", dto);
+    }
+
+    public void sendCancelSubscriptionEmail(EmailPaymentHaltedProjectCancelSubscriptionEmailDto dto) {
+        kafkaTemplate.send("email.subscription.cancel", dto);
     }
 
 }

@@ -213,33 +213,43 @@ class PaymentServiceImpl implements InternalPaymentService, ExternalPaymentServi
     }
 
     private void handleSubscriptionChargeCompleted(Event event) {
-        EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
-        if (deserializer.getObject().isPresent()) {
-            Invoice invoice = (Invoice) deserializer.getObject().get();
+        try {
+            EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
+            if (deserializer.getObject().isPresent()) {
+                Invoice invoice = (Invoice) deserializer.getObject().get();
 
-            String subscriptionId = invoice.getSubscription();
-
-            if (subscriptionId != null) {
-                try {
-                    Subscription subscription = Subscription.retrieve(subscriptionId);
-
-                    Map<String, String> subscriptionMetadata = subscription.getMetadata();
-                    System.out.println("Subscription Metadata: " + subscriptionMetadata);
-
-                    String projectId = subscriptionMetadata.get("projectId");
-                    String donorId = subscriptionMetadata.get("donorId");
-                    Double amount = Double.parseDouble(subscriptionMetadata.get("amount"));
-                    String message = subscriptionMetadata.get("message");
-
-                    producer.createMonthlyDonation(amount, message, invoice.getPaymentIntent(), projectId, donorId);
-
-                } catch (StripeException e) {
-                    System.err.println("Failed to fetch subscription details: " + e.getMessage());
+                PaymentIntent intent = PaymentIntent.retrieve(invoice.getPaymentIntent());
+                if (intent.getDescription().contains("Subscription creation")) {
+                    return;
                 }
+
+                String subscriptionId = invoice.getSubscription();
+
+                if (subscriptionId != null) {
+                    try {
+                        Subscription subscription = Subscription.retrieve(subscriptionId);
+
+                        Map<String, String> subscriptionMetadata = subscription.getMetadata();
+                        System.out.println("Subscription Metadata: " + subscriptionMetadata);
+
+                        String projectId = subscriptionMetadata.get("projectId");
+                        String donorId = subscriptionMetadata.get("donorId");
+                        Double amount = Double.parseDouble(subscriptionMetadata.get("amount"));
+                        String message = subscriptionMetadata.get("message");
+
+                        producer.createMonthlyDonation(amount, message, invoice.getPaymentIntent(), projectId, donorId);
+
+                    } catch (StripeException e) {
+                        System.err.println("Failed to fetch subscription details: " + e.getMessage());
+                    }
+                }
+
+            } else {
+                throw new IllegalArgumentException("Failed to deserialize session data");
             }
 
-        } else {
-            throw new IllegalArgumentException("Failed to deserialize session data");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
     }

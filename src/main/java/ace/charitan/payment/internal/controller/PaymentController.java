@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.AccessDeniedException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +56,16 @@ class PaymentController {
         } catch (Exception e){
             return ResponseEntity.badRequest().body(new StripeRedirectUrlResponseDto(e.getMessage()));
         }
+    }
+
+    @GetMapping("/monthly-subscription")
+    public ResponseEntity<List<String>> getSubscribedProjects() {
+        try {
+            return ResponseEntity.ok(service.getSubscribedProjects());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(new ArrayList<>());
+        }
+
     }
 
     @DeleteMapping("/monthly-subscription/{projectId}")
